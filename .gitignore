@@ -1,5 +1,4 @@
 # Terraform
-terraform/
 **/.terraform/
 *.tfstate
 *.tfstate.*
@@ -28,10 +27,9 @@ terraform.rc
 .env.*
 !.env.example
 
-# Generated review/report artifacts
-architecture-review.md
-Solution_Design.docx
-Solution_Design.md
+
+# Agent skills
+.agents/skills/frontend-slides/SKILL.md
 
 # OS files
 .DS_Store
@@ -52,6 +50,6 @@ desktop.ini
 *.temp
 tmp/
 temp/
-terraform/
+
 e2e-solution.md
 ArchitectureReviewerProposal.md
