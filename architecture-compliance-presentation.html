@@ -415,15 +415,6 @@ html,body{height:100%;background:#04070f;overflow:hidden;font-family:var(--bf);c
           <div class="node" style="flex:.82"><div class="nt">Classify</div><div class="nd">✅ / ⚠️ / ❌</div></div>
         </div>
 
-        <!-- agentic alternative note -->
-        <div class="flowrow reveal" style="--d:.33s;margin-top:16px;justify-content:flex-start">
-          <div class="nd" style="font-size:15px;line-height:1.5">
-            <b>Agentic option:</b> the Architecture Agent step can run natively in the workflow via
-            <a href="https://github.github.com/gh-aw/" target="_blank" rel="noopener" style="color:var(--a1,#58a6ff);text-decoration:underline;font-weight:600">GitHub Agentic Workflows (gh-aw)</a>
-            — Markdown-defined agents compiled to GitHub Actions, no external service.
-          </div>
-        </div>
-
         <!-- three outcomes -->
         <div class="flowrow reveal" style="--d:.42s;gap:30px;margin-top:34px">
           <div class="card node" style="flex:1;border-color:rgba(63,185,80,.5)">
@@ -444,6 +435,18 @@ html,body{height:100%;background:#04070f;overflow:hidden;font-family:var(--bf);c
             <div class="nd" style="margin-top:0">required check <b>green</b> &amp; Architect approved (CODEOWNERS)</div></div>
           <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
           <div class="node accent" style="flex:1"><div class="nt">Merge → terraform apply</div><div class="nd">deploy to Azure</div></div>
+        </div>
+
+        <!-- agentic alternative callout -->
+        <div class="card reveal" style="--d:.72s;margin-top:34px;padding:22px 28px;display:flex;align-items:center;gap:20px;border-left:4px solid var(--a1)">
+          <div class="nt" style="font-family:var(--hf);font-weight:700;font-size:22px;flex:0 0 auto">
+            <span class="grad">Agentic option</span>
+          </div>
+          <div class="nd" style="font-family:var(--mf);font-size:19px;color:var(--muted);line-height:1.4;margin:0">
+            Run the Architecture Agent step natively in the workflow via
+            <a href="https://github.github.com/gh-aw/" target="_blank" rel="noopener" style="color:var(--a2);text-decoration:none;font-weight:700;border-bottom:1px solid var(--a2)">GitHub Agentic Workflows (gh-aw)</a>
+            — Markdown-defined agents compiled to GitHub Actions, no external service.
+          </div>
         </div>
       </div>
       <div class="foot">Architecture Compliance Agent</div>

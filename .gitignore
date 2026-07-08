@@ -28,9 +28,6 @@ terraform.rc
 !.env.example
 
 
-# Agent skills
-.agents/skills/frontend-slides/SKILL.md
-
 # OS files
 .DS_Store
 Thumbs.db
