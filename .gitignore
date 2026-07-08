@@ -1,0 +1,55 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan.binary
+plan.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terraform variables (may contain secrets)
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Secrets and credentials
+*.pem
+*.key
+*.pfx
+.env
+.env.*
+!.env.example
+
+# Generated review/report artifacts
+architecture-review.md
+Solution_Design.docx
+Solution_Design.md
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+e2e-solution.md
+ArchitectureReviewerProposal.md

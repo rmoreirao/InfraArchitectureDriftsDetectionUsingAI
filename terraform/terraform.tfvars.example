@@ -1,0 +1,7 @@
+# Sample values for local `terraform plan`. Copy to terraform.tfvars and adjust.
+subscription_id = "00000000-0000-0000-0000-000000000000"
+location        = "westeurope"
+openai_location = "swedencentral"
+cosmos_location = "northeurope"
+name_prefix     = "iaai"
+environment     = "prd"

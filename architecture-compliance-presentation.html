@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture Compliance Agent — Microsoft Cloud Engineering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Familjen+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN TOKENS — "Fluent Signal" (azure dark)
+   ============================================================ */
+:root{
+  --bg:#0a1020; --bg2:#0c1430; --ink:#f4f7ff; --muted:#a7b6d6; --dim:#7185a8;
+  --a1:#2b6bff;   /* azure   */
+  --a2:#12c2c9;   /* teal    */
+  --a3:#7aa6ff;   /* light   */
+  --violet:#6a5cff;
+  --green:#3fb950; --amber:#e0a92e; --red:#f85149;
+  --panel:rgba(20,32,60,.62); --panel2:rgba(14,22,44,.72);
+  --line:rgba(120,150,210,.20); --line2:rgba(120,150,210,.34);
+  --hf:'Bricolage Grotesque',sans-serif;
+  --bf:'Familjen Grotesk',sans-serif;
+  --mf:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#04070f;overflow:hidden;font-family:var(--bf);color:var(--ink)}
+
+/* ============================================================
+   FIXED 16:9 STAGE — scaled uniformly to viewport
+   ============================================================ */
+.viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#04070f}
+.stage{width:1920px;height:1080px;position:relative;overflow:hidden;transform-origin:center center;
+  background:linear-gradient(135deg,var(--bg) 0%,var(--bg2) 55%,var(--bg) 100%)}
+
+/* atmospheric fluent ribbons (shared) */
+.ribbon{position:absolute;border-radius:46% 54% 60% 40%;filter:blur(34px);pointer-events:none}
+.rb-hero{width:1500px;height:1500px;right:-380px;top:-440px;
+  background:conic-gradient(from 200deg,var(--a1),var(--a2),var(--violet),var(--a1));opacity:.42;animation:spin 34s linear infinite}
+.rb-soft{width:1000px;height:1000px;left:-320px;bottom:-420px;
+  background:conic-gradient(from 40deg,var(--a2),var(--a1),var(--violet),var(--a2));opacity:.16}
+.rb-corner{width:760px;height:760px;right:-280px;bottom:-320px;
+  background:conic-gradient(from 120deg,var(--a1),var(--a2),var(--a1));opacity:.13}
+.veil{position:absolute;inset:0;background:radial-gradient(1300px 1000px at 22% 55%,transparent,var(--bg) 80%);pointer-events:none}
+
+/* ============================================================
+   SLIDE SWITCHING — visibility/opacity, never display
+   ============================================================ */
+.slide{position:absolute;inset:0;opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .5s ease}
+.slide.active{opacity:1;visibility:visible;pointer-events:auto}
+.pad{position:absolute;inset:0;padding:96px 120px;display:flex;flex-direction:column}
+
+/* reveal animation (plays when slide becomes active) */
+.reveal{opacity:0;transform:translateY(34px)}
+.slide.active .reveal{animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:var(--d,0s)}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes grow{to{width:var(--w,200px)}}
+@keyframes blink{50%{opacity:0}}
+
+/* ============================================================
+   SHARED TYPOGRAPHY / COMPONENTS
+   ============================================================ */
+.eyebrow{font-family:var(--bf);font-weight:600;font-size:23px;letter-spacing:.24em;text-transform:uppercase;color:var(--a3)}
+.snum{font-family:var(--mf);font-size:22px;color:var(--dim);letter-spacing:.1em}
+.h-lead{font-family:var(--hf);font-weight:800;letter-spacing:-.02em;line-height:1}
+.grad{background:linear-gradient(100deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.rule{height:5px;width:0;border-radius:3px;background:linear-gradient(90deg,var(--a1),var(--a2));
+  animation:grow 1s .5s forwards}
+.slide.active .rule{--w:200px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;backdrop-filter:blur(8px)}
+.node{background:var(--panel2);border:1px solid var(--line2);border-radius:16px;display:flex;flex-direction:column;
+  justify-content:center;text-align:center;padding:22px 24px}
+.node .nt{font-family:var(--hf);font-weight:700;font-size:27px;line-height:1.08}
+.node .nd{font-family:var(--mf);font-size:18px;color:var(--muted);margin-top:9px;line-height:1.35}
+.node.accent{border-color:rgba(43,107,255,.6);box-shadow:0 0 0 1px rgba(43,107,255,.25),0 24px 60px rgba(0,0,0,.4);
+  background:linear-gradient(180deg,rgba(24,44,92,.85),rgba(14,22,44,.85))}
+.chev{display:flex;align-items:center;justify-content:center;color:var(--a3);flex:0 0 auto}
+.chev svg{width:40px;height:40px}
+.chev.down svg{transform:rotate(90deg)}
+
+.tag-ok{color:var(--green)} .tag-wa{color:var(--amber)} .tag-dr{color:var(--red)}
+.pill{display:inline-flex;align-items:center;gap:11px;font-family:var(--mf);font-size:20px;
+  padding:11px 20px;border:1px solid var(--line2);border-radius:999px;background:rgba(14,22,44,.6)}
+.sq{width:15px;height:15px;border-radius:4px;flex:0 0 auto}
+.sq.ok{background:var(--green)}.sq.wa{background:var(--amber)}.sq.dr{background:var(--red)}
+
+/* footer chrome */
+.foot{position:absolute;left:120px;bottom:52px;font-family:var(--mf);font-size:19px;color:var(--dim);letter-spacing:.08em}
+.foot-r{position:absolute;right:120px;bottom:52px;font-family:var(--mf);font-size:19px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase}
+
+/* ============================================================
+   NAV (outside stage chrome lives inside viewport)
+   ============================================================ */
+.dots{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:50}
+.dots button{width:11px;height:11px;border-radius:50%;border:0;background:rgba(160,180,220,.32);cursor:pointer;padding:0;transition:.25s}
+.dots button.on{background:linear-gradient(100deg,var(--a1),var(--a2));width:30px;border-radius:6px}
+.arrows{position:fixed;bottom:16px;right:26px;display:flex;gap:10px;z-index:50}
+.arrows button{width:46px;height:46px;border-radius:12px;border:1px solid var(--line2);background:rgba(14,22,44,.7);
+  color:var(--ink);font-size:22px;cursor:pointer;transition:.2s}
+.arrows button:hover{background:rgba(43,107,255,.28)}
+.pcount{position:fixed;bottom:26px;left:26px;font-family:var(--mf);font-size:17px;color:var(--dim);z-index:50}
+
+/* ============================================================
+   SLIDE 1 — TITLE
+   ============================================================ */
+#s1 .pad{justify-content:center}
+#s1 .tag{margin-bottom:36px}
+#s1 h1{font-size:132px;max-width:1320px}
+#s1 h1 em{font-style:normal}
+#s1 .sub{margin-top:44px;font-size:35px;line-height:1.42;color:var(--muted);max-width:1040px}
+#s1 .agenda{position:absolute;left:120px;bottom:120px;display:flex;gap:54px;align-items:baseline}
+#s1 .agenda .n{font-family:var(--hf);font-weight:700;font-size:38px}
+#s1 .agenda .l{display:block;font-size:19px;color:var(--muted);letter-spacing:.06em;margin-top:6px}
+
+/* ============================================================
+   SLIDE 2 — PROBLEM
+   ============================================================ */
+.two-worlds{display:flex;align-items:stretch;gap:0;margin-top:20px}
+.world{flex:1;padding:40px 44px;border-radius:22px}
+.world .wtag{font-family:var(--mf);font-size:20px;letter-spacing:.16em;text-transform:uppercase;color:var(--a3);margin-bottom:20px}
+.world h3{font-family:var(--hf);font-weight:700;font-size:44px;margin-bottom:18px}
+.world p{font-size:24px;color:var(--muted);line-height:1.45}
+.world.left{background:linear-gradient(180deg,rgba(24,44,92,.5),rgba(14,22,44,.4));border:1px solid var(--line)}
+.world.right{background:linear-gradient(180deg,rgba(18,60,90,.42),rgba(14,22,44,.4));border:1px solid var(--line)}
+.gap{width:230px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;position:relative}
+.gap .bolt{font-size:60px}
+.gap .glabel{font-family:var(--mf);font-size:19px;color:var(--red);letter-spacing:.14em;text-transform:uppercase;text-align:center}
+.gap .gline{position:absolute;top:50%;left:0;right:0;height:2px;
+  background:repeating-linear-gradient(90deg,var(--red) 0 12px,transparent 12px 24px);opacity:.55}
+
+/* ============================================================
+   SLIDE 3 — DRIFT SITUATIONS
+   ============================================================ */
+.drift-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:34px;margin-top:44px}
+.drift{padding:44px 40px;position:relative;overflow:hidden}
+.drift .idx{font-family:var(--hf);font-weight:800;font-size:80px;line-height:1;color:transparent;
+  -webkit-text-stroke:2px rgba(122,166,255,.5)}
+.drift h3{font-family:var(--hf);font-weight:700;font-size:34px;margin:20px 0 16px}
+.drift p{font-size:23px;color:var(--muted);line-height:1.5}
+.drift .code{font-family:var(--mf);font-size:19px;color:var(--a2);margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.drift::after{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,var(--a1),var(--a2))}
+
+/* ============================================================
+   SLIDE 4 — PROPOSALS
+   ============================================================ */
+.props{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px}
+.prop{padding:44px 46px;position:relative}
+.prop .pk{font-family:var(--mf);font-size:20px;letter-spacing:.14em;text-transform:uppercase;color:var(--a3);margin-bottom:12px}
+.prop h3{font-family:var(--hf);font-weight:700;font-size:46px;line-height:1.04;margin-bottom:10px}
+.prop .plabel{font-size:23px;color:var(--muted);margin-bottom:26px}
+.prop ul{list-style:none;display:flex;flex-direction:column;gap:16px}
+.prop li{display:flex;gap:14px;font-size:24px;color:var(--ink);line-height:1.35}
+.prop li .mk{color:var(--a2);font-family:var(--mf);flex:0 0 auto}
+.prop .stack{position:absolute;right:44px;top:44px;font-family:var(--mf);font-size:18px;color:var(--dim);text-align:right;line-height:1.6}
+.prop.primary{border:1px solid rgba(43,107,255,.55);box-shadow:0 0 0 1px rgba(43,107,255,.25),0 30px 70px rgba(0,0,0,.4);
+  background:linear-gradient(180deg,rgba(24,44,92,.7),rgba(14,22,44,.7))}
+.ribbon-flag{position:absolute;right:-1px;top:34px;background:linear-gradient(100deg,var(--a1),var(--a2));
+  font-family:var(--mf);font-size:16px;letter-spacing:.12em;padding:8px 18px;border-radius:10px 0 0 10px;color:#041022;font-weight:700}
+
+/* ============================================================
+   DIAGRAM SLIDES (5,6,7,8)
+   ============================================================ */
+.flowrow{display:flex;align-items:stretch;gap:14px}
+.legend{display:flex;gap:26px;margin-top:34px;flex-wrap:wrap}
+.mini{font-family:var(--mf);font-size:19px;color:var(--muted);display:flex;align-items:center;gap:10px}
+
+/* section header used by content slides */
+.shead{display:flex;align-items:flex-end;justify-content:space-between}
+.shead .htxt h2{font-family:var(--hf);font-weight:800;font-size:66px;letter-spacing:-.02em;line-height:1}
+.shead .htxt .eyebrow{margin-bottom:16px;display:block}
+
+/* ============================================================
+   SLIDE — TRADEOFFS (comparison table)
+   ============================================================ */
+.tox{display:grid;grid-template-columns:280px 1fr 1fr;gap:10px;margin-top:14px}
+.tox .colh{font-family:var(--hf);font-weight:700;font-size:29px;padding:18px 24px;border-radius:14px 14px 0 0;
+  display:flex;align-items:center;gap:14px}
+.tox .colh small{font-family:var(--mf);font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:#041022;
+  background:linear-gradient(100deg,var(--a1),var(--a2));padding:5px 12px;border-radius:8px;font-weight:700}
+.tox .colh small.alt{background:transparent;border:1px solid var(--line2);color:var(--a3)}
+.tox .colh.a{color:var(--ink)}
+.tox .colh.b{color:var(--muted)}
+.tox .rowlabel{font-family:var(--hf);font-weight:700;font-size:22px;color:var(--ink);display:flex;align-items:center;padding:0 6px 0 4px}
+.tox .cell{padding:12px 22px;font-size:20px;line-height:1.28;color:var(--muted);display:flex;gap:13px;align-items:flex-start}
+.tox .cell b{color:var(--ink);font-weight:600}
+.tox .cell .ic{flex:0 0 auto;font-size:20px;line-height:1.2}
+.tox .cell .ic.n{color:var(--a3);font-size:17px}
+.tox .a{background:linear-gradient(180deg,rgba(24,44,92,.5),rgba(14,22,44,.46));border-left:1px solid rgba(43,107,255,.42);border-right:1px solid rgba(43,107,255,.42)}
+.tox .b{background:var(--panel2);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.tox .colh.a{background:linear-gradient(180deg,rgba(28,54,110,.7),rgba(18,32,64,.6));border:1px solid rgba(43,107,255,.55);border-bottom:0}
+.tox .colh.b{background:rgba(14,22,44,.7);border:1px solid var(--line);border-bottom:0}
+.tox .a.last{border-bottom:1px solid rgba(43,107,255,.42);border-radius:0 0 14px 14px}
+.tox .b.last{border-bottom:1px solid var(--line);border-radius:0 0 14px 14px}
+.tox-rec{margin-top:16px;padding:20px 34px;border-radius:18px;display:flex;align-items:center;gap:24px;
+  background:linear-gradient(100deg,rgba(43,107,255,.20),rgba(18,194,201,.12));border:1px solid rgba(43,107,255,.5)}
+.tox-rec .arrow{font-family:var(--hf);font-weight:800;font-size:30px;color:var(--a2);flex:0 0 auto}
+.tox-rec .t{font-size:22px;line-height:1.34;color:var(--ink)}
+.tox-rec .t b{background:linear-gradient(100deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .reveal{opacity:1!important;transform:none!important}
+  .rule{width:200px!important}
+}
+</style>
+</head>
+<body>
+<div class="viewport">
+  <div class="stage" id="stage">
+
+    <!-- ==================== SLIDE 1 · TITLE ==================== -->
+    <section class="slide active" id="s1">
+      <div class="ribbon rb-hero"></div>
+      <div class="ribbon rb-soft"></div>
+      <div class="veil"></div>
+      <div class="pad">
+        <div class="tag eyebrow reveal">Microsoft — Cloud &amp; DevOps Engineering</div>
+        <h1 class="h-lead reveal" style="--d:.12s">Architecture<br><em class="grad">Compliance</em> Agent</h1>
+        <div class="sub reveal" style="--d:.3s">Keep infrastructure and architecture in sync — the agent reviews every Terraform change against your documented design before it ever reaches Azure.</div>
+        <div class="rule reveal" style="--d:.42s;margin-top:52px"></div>
+      </div>
+      <div class="agenda reveal" style="--d:.6s">
+        <div><span class="n grad">1</span><span class="l">Problem</span></div>
+        <div><span class="n grad">2</span><span class="l">Proposals</span></div>
+        <div><span class="n grad">3</span><span class="l">Deep Dive</span></div>
+        <div><span class="n grad">4</span><span class="l">Proof of Concept</span></div>
+      </div>
+      <div class="foot-r">Terraform · Azure · Confluence</div>
+    </section>
+
+    <!-- ==================== SLIDE 2 · PROBLEM ==================== -->
+    <section class="slide" id="s2">
+      <div class="ribbon rb-corner"></div><div class="veil"></div>
+      <div class="pad">
+        <div class="shead reveal">
+          <div class="htxt"><span class="eyebrow">01 · The Problem</span>
+            <h2 class="h-lead">Two worlds that quietly <span class="grad">drift apart</span></h2></div>
+          <div class="snum">02 / 09</div>
+        </div>
+        <div class="rule reveal" style="--d:.15s;margin:26px 0 10px"></div>
+        <div class="two-worlds reveal" style="--d:.28s">
+          <div class="world left">
+            <div class="wtag">Intent — what was decided</div>
+            <h3>Confluence architecture</h3>
+            <p>Architects document the decisions that matter: resource groups, SKUs, networking, private endpoints, high availability, database tier, identity and security — at a deliberately high level.</p>
+          </div>
+          <div class="gap">
+            <div class="gline"></div>
+            <div class="bolt">⚡</div>
+            <div class="glabel">Drift</div>
+          </div>
+          <div class="world right">
+            <div class="wtag">Reality — what is deployed</div>
+            <h3>Terraform → Azure</h3>
+            <p>Code evolves every sprint across hundreds of resources. Over time nobody can say whether the documentation still represents the real architecture.</p>
+          </div>
+        </div>
+        <p class="reveal" style="--d:.45s;margin-top:38px;font-size:27px;color:var(--muted);max-width:1500px;line-height:1.5">
+          Existing tools <b style="color:var(--ink)">generate</b> docs from code. The real enterprise problem is different:
+          <b style="color:var(--a3)">verify that Terraform still implements the architecture Confluence describes.</b></p>
+      </div>
+      <div class="foot">Architecture Compliance Agent</div>
+      <div class="foot-r">Intent vs Reality</div>
+    </section>
+
+    <!-- ==================== SLIDE 3 · DRIFT SITUATIONS ==================== -->
+    <section class="slide" id="s3">
+      <div class="ribbon rb-corner"></div><div class="veil"></div>
+      <div class="pad">
+        <div class="shead reveal">
+          <div class="htxt"><span class="eyebrow">01 · The Problem</span>
+            <h2 class="h-lead">Three ways drift <span class="grad">creeps in</span></h2></div>
+          <div class="snum">03 / 09</div>
+        </div>
+        <div class="rule reveal" style="--d:.15s;margin:26px 0 0"></div>
+        <div class="drift-grid">
+          <div class="card drift reveal" style="--d:.28s">
+            <div class="idx">01</div>
+            <h3>New Terraform is created</h3>
+            <p>Fresh resources are added in code — an extra service, a new data store — that the architecture page never mentioned.</p>
+            <div class="code">+ azurerm_cosmosdb_account<br>&nbsp;&nbsp;# not in Confluence</div>
+          </div>
+          <div class="card drift reveal" style="--d:.42s">
+            <div class="idx">02</div>
+            <h3>Existing Terraform is edited</h3>
+            <p>A SKU is downgraded, a private endpoint removed, HA reduced — small edits that silently contradict a documented decision.</p>
+            <div class="code">sku_name = "P1V3" → "B2"<br>&nbsp;&nbsp;# violates the design</div>
+          </div>
+          <div class="card drift reveal" style="--d:.56s">
+            <div class="idx">03</div>
+            <h3>Confluence is edited</h3>
+            <p>An architect updates the intended design, but the Terraform is never revisited — now the code lags behind the documented target.</p>
+            <div class="code">doc: "must be zone-redundant"<br>&nbsp;&nbsp;# code not updated</div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">Architecture Compliance Agent</div>
+      <div class="foot-r">Drift triggers</div>
+    </section>
+
+    <!-- ==================== SLIDE 4 · PROPOSALS ==================== -->
+    <section class="slide" id="s4">
+      <div class="ribbon rb-corner"></div><div class="veil"></div>
+      <div class="pad">
+        <div class="shead reveal">
+          <div class="htxt"><span class="eyebrow">02 · Proposals</span>
+            <h2 class="h-lead">Two ways to <span class="grad">deliver it</span></h2></div>
+          <div class="snum">04 / 09</div>
+        </div>
+        <div class="rule reveal" style="--d:.15s;margin:26px 0 0"></div>
+        <div class="props">
+          <div class="card prop primary reveal" style="--d:.28s">
+            <div class="pk">Proposal A · <span style="color:var(--a2)">Recommended</span> · Deep dive →</div>
+            <h3>GitHub + Actions</h3>
+            <div class="plabel">Native to your GitHub DevOps platform</div>
+            <ul>
+              <li><span class="mk">▹</span><span>Runs on every Pull Request via GitHub Actions</span></li>
+              <li><span class="mk">▹</span><span>Publishes a merge-blocking <b>Check Run</b> (Branch Protection)</span></li>
+              <li><span class="mk">▹</span><span>Auto-opens a <b>Doc-Patch PR</b> when docs are stale</span></li>
+              <li><span class="mk">▹</span><span>Architect sign-off via <b>CODEOWNERS</b></span></li>
+            </ul>
+          </div>
+          <div class="card prop reveal" style="--d:.42s">
+            <div class="pk">Proposal B · Alternative</div>
+            <h3>App + Custom Agent<br>on Azure Foundry</h3>
+            <div class="plabel">Platform-agnostic, managed agent runtime</div>
+            <ul>
+              <li><span class="mk">▹</span><span>Web app on <b>Azure App Service</b> receives PR events</span></li>
+              <li><span class="mk">▹</span><span>Custom agent on <b>Azure AI Foundry Agent Service</b></span></li>
+              <li><span class="mk">▹</span><span>Managed identity, tools &amp; connections built-in</span></li>
+              <li><span class="mk">▹</span><span>Works beyond GitHub — any SCM via webhook</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="foot">Architecture Compliance Agent</div>
+      <div class="foot-r">Proposals</div>
+    </section>
+
+    <!-- ==================== SLIDE 5 · TRADEOFFS ==================== -->
+    <section class="slide" id="s4b">
+      <div class="ribbon rb-corner"></div><div class="veil"></div>
+      <div class="pad">
+        <div class="shead reveal">
+          <div class="htxt"><span class="eyebrow">02 · Proposals — Tradeoffs</span>
+            <h2 class="h-lead">Which one, <span class="grad">and why</span></h2></div>
+          <div class="snum">05 / 09</div>
+        </div>
+        <div class="rule reveal" style="--d:.12s;margin:22px 0 0"></div>
+
+        <div class="tox reveal" style="--d:.24s">
+          <!-- header row -->
+          <div></div>
+          <div class="colh a">GitHub + Actions <small>Recommended now</small></div>
+          <div class="colh b">Azure Foundry <small class="alt">Strategic</small></div>
+
+          <!-- row 1 -->
+          <div class="rowlabel">Effort to ship</div>
+          <div class="cell a"><span class="ic">✅</span><span><b>Low</b> — reuses today's skill &amp; plan.json</span></div>
+          <div class="cell b"><span class="ic">⚠️</span><span><b>Higher</b> — new app + agent to stand up</span></div>
+
+          <!-- row 2 -->
+          <div class="rowlabel">Fits current workflow</div>
+          <div class="cell a"><span class="ic">✅</span><span>Runs in the <b>PR you already review</b></span></div>
+          <div class="cell b"><span class="ic n">◆</span><span>Integrates via <b>webhook</b>; status wired back</span></div>
+
+          <!-- row 3 -->
+          <div class="rowlabel">Enforcement</div>
+          <div class="cell a"><span class="ic">✅</span><span>Native <b>Check Run + Branch Protection</b></span></div>
+          <div class="cell b"><span class="ic n">◆</span><span>Custom gate integration</span></div>
+
+          <!-- row 4 -->
+          <div class="rowlabel">Runtime &amp; extensibility</div>
+          <div class="cell a"><span class="ic n">◆</span><span>Skill within the Actions run</span></div>
+          <div class="cell b"><span class="ic">✅</span><span><b>Managed runtime</b> — orchestration, tools, multi-step reasoning, standalone UI/API</span></div>
+
+          <!-- row 5 -->
+          <div class="rowlabel">Reach &amp; autonomy</div>
+          <div class="cell a last"><span class="ic n">◆</span><span>GitHub-scoped</span></div>
+          <div class="cell b last"><span class="ic">✅</span><span><b>Any SCM</b> via webhook; runs continuously, independent of any repo</span></div>
+        </div>
+
+        <div class="tox-rec reveal" style="--d:.5s">
+          <div class="arrow">→</div>
+          <div class="t"><b>Start with GitHub + Actions</b> — least effort and native, in-SDLC enforcement. <b>Evolve to Foundry</b> when a managed, multi-SCM agent with richer reasoning or its own UI is the goal.</div>
+        </div>
+      </div>
+      <div class="foot">Architecture Compliance Agent</div>
+      <div class="foot-r">Tradeoffs</div>
+    </section>
+
+    <!-- ==================== SLIDE 5 · GH WORKFLOW ==================== -->
+    <section class="slide" id="s5">
+      <div class="ribbon rb-corner"></div><div class="veil"></div>
+      <div class="pad">
+        <div class="shead reveal">
+          <div class="htxt"><span class="eyebrow">03 · Deep Dive — GitHub + Actions</span>
+            <h2 class="h-lead">The end-to-end <span class="grad">solution</span></h2></div>
+          <div class="snum">06 / 09</div>
+        </div>
+        <div class="rule reveal" style="--d:.12s;margin:22px 0 30px"></div>
+
+        <!-- top pipeline -->
+        <div class="flowrow reveal" style="--d:.24s">
+          <div class="node" style="flex:1"><div class="nt">Pull Request</div><div class="nd">changes under terraform/</div></div>
+          <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
+          <div class="node" style="flex:1.05"><div class="nt">GitHub Actions</div><div class="nd">terraform plan → plan.json (OIDC)</div></div>
+          <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
+          <div class="node accent" style="flex:1.15"><div class="nt">Architecture Agent</div><div class="nd">deterministic rules + LLM · reads Confluence intent</div></div>
+          <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
+          <div class="node" style="flex:.82"><div class="nt">Classify</div><div class="nd">✅ / ⚠️ / ❌</div></div>
+        </div>
+
+        <!-- three outcomes -->
+        <div class="flowrow reveal" style="--d:.42s;gap:30px;margin-top:34px">
+          <div class="card node" style="flex:1;border-color:rgba(63,185,80,.5)">
+            <div class="nt"><span class="tag-ok">✅ Match</span></div>
+            <div class="nd">Check <b>success</b> — nothing else needed</div></div>
+          <div class="card node" style="flex:1;border-color:rgba(224,169,46,.5)">
+            <div class="nt"><span class="tag-wa">⚠️ Doc stale</span></div>
+            <div class="nd">Check <b>neutral</b> + open a <b>Doc-Patch PR</b></div></div>
+          <div class="card node" style="flex:1;border-color:rgba(248,81,73,.55)">
+            <div class="nt"><span class="tag-dr">❌ Drift</span></div>
+            <div class="nd">Check <b>failure</b> — <b>blocks merge</b></div></div>
+        </div>
+
+        <!-- gate -->
+        <div class="flowrow reveal" style="--d:.6s;margin-top:34px">
+          <div class="node" style="flex:1.4;flex-direction:row;gap:18px;text-align:left;justify-content:flex-start">
+            <div class="nt" style="font-size:24px">Branch Protection gate</div>
+            <div class="nd" style="margin-top:0">required check <b>green</b> &amp; Architect approved (CODEOWNERS)</div></div>
+          <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
+          <div class="node accent" style="flex:1"><div class="nt">Merge → terraform apply</div><div class="nd">deploy to Azure</div></div>
+        </div>
+      </div>
+      <div class="foot">Architecture Compliance Agent</div>
+      <div class="foot-r">GitHub + Actions</div>
+    </section>
+
+    <!-- ==================== SLIDE 7 · AZURE FOUNDRY ==================== -->
+    <section class="slide" id="s7">
+      <div class="ribbon rb-corner"></div><div class="veil"></div>
+      <div class="pad">
+        <div class="shead reveal">
+          <div class="htxt"><span class="eyebrow">02 · Proposals — Alternative</span>
+            <h2 class="h-lead">App + Custom Agent on <span class="grad">Azure Foundry</span></h2></div>
+          <div class="snum">07 / 09</div>
+        </div>
+        <div class="rule reveal" style="--d:.12s;margin:22px 0 34px"></div>
+
+        <div class="flowrow reveal" style="--d:.26s">
+          <div class="node" style="flex:1"><div class="nt">GitHub Webhook</div><div class="nd">PR event + plan.json</div></div>
+          <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
+          <div class="node" style="flex:1.1"><div class="nt">App Service</div><div class="nd">web app · receives &amp; orchestrates</div></div>
+          <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
+          <div class="node accent" style="flex:1.3"><div class="nt">AI Foundry Agent Service</div><div class="nd">custom agent · intent-vs-reality reasoning</div></div>
+        </div>
+
+        <div class="flowrow reveal" style="--d:.44s;margin-top:30px;gap:30px">
+          <div class="card node" style="flex:1"><div class="nt" style="font-size:24px">reads</div><div class="nd">Terraform plan + Confluence architecture page</div></div>
+          <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
+          <div class="card node" style="flex:1"><div class="nt" style="font-size:24px">posts back</div><div class="nd">PR status comment + Confluence draft</div></div>
+        </div>
+
+        <div style="display:flex;gap:26px;margin-top:40px;flex-wrap:wrap" class="reveal">
+          <div class="pill" style="--d:.6s"><span class="sq ok"></span>Managed agent runtime</div>
+          <div class="pill"><span class="sq ok"></span>Managed identity &amp; connections</div>
+          <div class="pill"><span class="sq ok"></span>Platform-agnostic (any SCM)</div>
+          <div class="pill"><span class="sq wa"></span>Conceptual — same engine, different host</div>
+        </div>
+      </div>
+      <div class="foot">Architecture Compliance Agent</div>
+      <div class="foot-r">Azure Foundry</div>
+    </section>
+
+    <!-- ==================== SLIDE 8 · POC SCRIPT + SKILL ==================== -->
+    <section class="slide" id="s8">
+      <div class="ribbon rb-corner"></div><div class="veil"></div>
+      <div class="pad">
+        <div class="shead reveal">
+          <div class="htxt"><span class="eyebrow">04 · Proof of Concept</span>
+            <h2 class="h-lead">How the <span class="grad">PoC</span> works today</h2></div>
+          <div class="snum">08 / 09</div>
+        </div>
+        <div class="rule reveal" style="--d:.12s;margin:22px 0 30px"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 64px 1fr;gap:0;align-items:stretch">
+          <!-- script -->
+          <div class="card reveal" style="--d:.26s;padding:40px 44px">
+            <div style="font-family:var(--mf);font-size:20px;color:var(--a2);letter-spacing:.08em;margin-bottom:22px">run-architecture-review.ps1 — deterministic</div>
+            <ol style="list-style:none;display:flex;flex-direction:column;gap:20px">
+              <li style="display:flex;gap:18px;font-size:24px;line-height:1.35"><b class="grad" style="font-family:var(--hf);font-size:30px">1</b><span>Validate tooling — <span style="color:var(--muted)">terraform · az · copilot</span></span></li>
+              <li style="display:flex;gap:18px;font-size:24px;line-height:1.35"><b class="grad" style="font-family:var(--hf);font-size:30px">2</b><span>Enforce current Azure credentials <span style="color:var(--muted)">(az account show → inject subscription)</span></span></li>
+              <li style="display:flex;gap:18px;font-size:24px;line-height:1.35"><b class="grad" style="font-family:var(--hf);font-size:30px">3</b><span>terraform <span style="color:var(--muted)">init → validate → plan → show -json</span> = <b style="color:var(--a2)">plan.json</b></span></li>
+              <li style="display:flex;gap:18px;font-size:24px;line-height:1.35"><b class="grad" style="font-family:var(--hf);font-size:30px">4</b><span>Invoke the skill via the <b>Copilot CLI</b></span></li>
+            </ol>
+          </div>
+          <!-- connector -->
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+            <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h13M13 6l6 6-6 6"/></svg></div>
+            <div style="font-family:var(--mf);font-size:15px;color:var(--dim);writing-mode:vertical-rl;transform:rotate(180deg)">plan.json</div>
+          </div>
+          <!-- skill -->
+          <div class="card reveal" style="--d:.42s;padding:40px 44px;border-color:rgba(43,107,255,.5)">
+            <div style="font-family:var(--mf);font-size:20px;color:var(--a3);letter-spacing:.08em;margin-bottom:22px">architecture-drift-review — skill</div>
+            <ol style="list-style:none;display:flex;flex-direction:column;gap:20px">
+              <li style="display:flex;gap:18px;font-size:24px;line-height:1.35"><b class="grad" style="font-family:var(--hf);font-size:30px">1</b><span>Extract <b>intent</b> model from the design doc</span></li>
+              <li style="display:flex;gap:18px;font-size:24px;line-height:1.35"><b class="grad" style="font-family:var(--hf);font-size:30px">2</b><span>Extract <b>reality</b> model from plan.json</span></li>
+              <li style="display:flex;gap:18px;font-size:24px;line-height:1.35"><b class="grad" style="font-family:var(--hf);font-size:30px">3</b><span>Compare <b>semantically</b> — <span class="tag-ok">✅</span> <span class="tag-wa">⚠️</span> <span class="tag-dr">❌</span></span></li>
+              <li style="display:flex;gap:18px;font-size:24px;line-height:1.35"><b class="grad" style="font-family:var(--hf);font-size:30px">4</b><span>Write the <b>report</b> → architecture-review.md</span></li>
+            </ol>
+          </div>
+        </div>
+        <p class="reveal" style="--d:.6s;margin-top:34px;font-size:24px;color:var(--muted);text-align:center">
+          The script owns the <b style="color:var(--ink)">deterministic</b> half; the skill owns the <b style="color:var(--ink)">semantic</b> comparison.</p>
+      </div>
+      <div class="foot">Architecture Compliance Agent</div>
+      <div class="foot-r">PoC · Architecture</div>
+    </section>
+
+    <!-- ==================== SLIDE 9 · OUTPUT + CLOSE ==================== -->
+    <section class="slide" id="s9">
+      <div class="ribbon rb-hero" style="opacity:.28"></div>
+      <div class="ribbon rb-soft"></div><div class="veil"></div>
+      <div class="pad">
+        <div class="shead reveal">
+          <div class="htxt"><span class="eyebrow">04 · Proof of Concept — Output</span>
+            <h2 class="h-lead">A real drift <span class="grad">caught</span></h2></div>
+          <div class="snum">09 / 09</div>
+        </div>
+        <div class="rule reveal" style="--d:.12s;margin:22px 0 30px"></div>
+
+        <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:44px;align-items:start">
+          <!-- report card -->
+          <div class="card reveal" style="--d:.26s;padding:0;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:12px;padding:20px 30px;border-bottom:1px solid var(--line);background:rgba(10,14,26,.6);font-family:var(--mf)">
+              <span class="sq dr"></span><b style="font-size:22px">architecture-review.md</b>
+              <span style="margin-left:auto;color:var(--red);font-size:20px">❌ Drift detected</span>
+            </div>
+            <div style="padding:14px 30px">
+              <div class="rrow" style="display:flex;justify-content:space-between;padding:15px 0;border-bottom:1px solid var(--line);font-size:21px"><span>App Service Plan SKU · B1</span><span class="tag-ok">✅</span></div>
+              <div class="rrow" style="display:flex;justify-content:space-between;padding:15px 0;border-bottom:1px solid var(--line);font-size:21px"><span>AI Search HA · replica_count = 3</span><span class="tag-ok">✅</span></div>
+              <div class="rrow" style="display:flex;justify-content:space-between;padding:15px 0;border-bottom:1px solid var(--line);font-size:21px"><span>Private endpoints · OpenAI / Search / Blob</span><span class="tag-ok">✅</span></div>
+              <div class="rrow" style="display:flex;justify-content:space-between;padding:15px 0;border-bottom:1px solid var(--line);font-size:21px"><span>OpenAI auth · API keys still enabled</span><span class="tag-wa">⚠️</span></div>
+              <div class="rrow" style="display:flex;justify-content:space-between;padding:15px 0;font-size:21px"><span style="max-width:78%">Cosmos DB · public endpoint open, no firewall</span><span class="tag-dr">❌</span></div>
+            </div>
+            <div style="padding:18px 30px;background:rgba(248,81,73,.08);border-top:1px solid rgba(248,81,73,.3);font-family:var(--mf);font-size:19px;color:#ffc9c5">
+              Design requires private networking — Terraform leaves Cosmos DB public.</div>
+          </div>
+          <!-- value / close -->
+          <div class="reveal" style="--d:.42s">
+            <h3 class="h-lead" style="font-size:44px;font-weight:700;margin-bottom:26px">Not a doc generator —<br>an <span class="grad">architecture guardian</span></h3>
+            <ul style="list-style:none;display:flex;flex-direction:column;gap:20px;font-size:25px;line-height:1.35">
+              <li style="display:flex;gap:14px"><span class="mk" style="color:var(--a2);font-family:var(--mf)">▹</span><span>Reviews only the <b>decisions that matter</b></span></li>
+              <li style="display:flex;gap:14px"><span class="mk" style="color:var(--a2);font-family:var(--mf)">▹</span><span>Semantic, not syntactic — reasons about <b>intent</b></span></li>
+              <li style="display:flex;gap:14px"><span class="mk" style="color:var(--a2);font-family:var(--mf)">▹</span><span>Automated review, right in the <b>PR workflow</b></span></li>
+              <li style="display:flex;gap:14px"><span class="mk" style="color:var(--a2);font-family:var(--mf)">▹</span><span>Keeps Terraform, Azure &amp; Confluence <b>aligned</b></span></li>
+            </ul>
+            <div class="pill" style="margin-top:34px;border-color:var(--line2)"><span class="sq ok"></span>Start with Proposal A — evolve toward Foundry</div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">Microsoft — Cloud &amp; DevOps Engineering</div>
+      <div class="foot-r">Thank you</div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ============================ NAV ============================ -->
+<div class="pcount"><span id="cur">1</span> / 9</div>
+<div class="dots" id="dots"></div>
+<div class="arrows">
+  <button id="prev" aria-label="Previous">‹</button>
+  <button id="next" aria-label="Next">›</button>
+</div>
+
+<script>
+/* === FIXED-STAGE SCALER === */
+const stage=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/1920,innerHeight/1080);stage.style.transform=`scale(${s})`;}
+addEventListener('resize',fit);fit();
+
+/* === SLIDE NAVIGATION === */
+const slides=[...document.querySelectorAll('.slide')];
+const dotsWrap=document.getElementById('dots');
+let idx=0;
+slides.forEach((_,i)=>{const b=document.createElement('button');b.onclick=()=>go(i);dotsWrap.appendChild(b);});
+const dots=[...dotsWrap.children];
+function go(n){
+  idx=Math.max(0,Math.min(slides.length-1,n));
+  slides.forEach((s,i)=>s.classList.toggle('active',i===idx));
+  dots.forEach((d,i)=>d.classList.toggle('on',i===idx));
+  document.getElementById('cur').textContent=idx+1;
+}
+document.getElementById('next').onclick=()=>go(idx+1);
+document.getElementById('prev').onclick=()=>go(idx-1);
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();go(idx+1);}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(idx-1);}
+  if(e.key==='Home')go(0); if(e.key==='End')go(slides.length-1);
+});
+/* touch swipe */
+let tx=0;addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>60)go(idx+(dx<0?1:-1));},{passive:true});
+go(0);
+</script>
+</body>
+</html>
